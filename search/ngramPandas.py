@@ -27,9 +27,10 @@ class NgramPandas(metaclass = Singleton):
         computeDF["len"]=computeDF['word'].str.len()
         computeDF['lookupindex']=computeDF['freq'].rank(method='first')
         computeDF["3gram"]=computeDF['word'].apply(lambda x: self.ngrams(x,3,True,False,"-"))
-        computeDF.set_index(['lookupindex', 'word'], inplace=True)
-        max_letter_len=int(computeDF["len"].max())
-        self.max_letter_len=max_letter_len
+        computeDF["4gram"]=computeDF['word'].apply(lambda x: self.ngrams(x,4,False,False,"-"))
+        self.max_letter_len=int(computeDF["len"].max())
+        computeDF.set_index(['lookupindex', 'word','len'], inplace=True)
+        self.fourgramMap={}
         self.trigramMap={}
         pbar=tqdm(total = self.total_words)
         for index,rec in computeDF.iterrows():
@@ -39,7 +40,12 @@ class NgramPandas(metaclass = Singleton):
                     self.trigramMap[gram].append(index[0])
                 else:
                     self.trigramMap[gram]=[index[0]]
-        self.searchDF=computeDF[['freq','len']]a            
+            for gram in rec['4gram'].keys():
+                if(gram in self.fourgramMap):
+                    self.fourgramMap[gram].append(index[0])
+                else:
+                    self.fourgramMap[gram]=[index[0]]
+        self.searchDF=computeDF[['freq']].copy(deep=True)           
     @staticmethod
     def check_start(searchLength,search_term,queryString):
         if(queryString[:searchLength]==search_term):
@@ -67,17 +73,20 @@ class NgramPandas(metaclass = Singleton):
     def search_me(self,search_term):
         print("searching",search_term)
         searchLength=len(search_term)
-        print(self.max_letter_len)
-        if(searchLength>self.max_letter_len):
-            raise ValueError('no words are there more than '+str(self.max_letter_len)+' letters')
-        predgramList=self.ngrams(search_term,3,True,False,"-")
         resultListfromNgram=[]
-        for pred in predgramList.keys():
-            resultListfromNgram=resultListfromNgram+self.trigramMap[pred]
-        res=self.searchDF[(self.searchDF.index.get_level_values('lookupindex').isin(set(resultListfromNgram)))].copy(deep=True)
+        if(searchLength<15):
+            predgramList=self.ngrams(search_term,3,True,False,"-")
+            for pred in predgramList.keys():
+                resultListfromNgram=resultListfromNgram+self.trigramMap[pred]
+        else:
+            predgramList=self.ngrams(search_term,4,False,False,"-")
+            for pred in predgramList.keys():
+                resultListfromNgram=resultListfromNgram+self.fourgramMap[pred]
+        res=self.searchDF[(self.searchDF.index.get_level_values('lookupindex').isin(set(resultListfromNgram))) &(self.searchDF.index.get_level_values('len')>=searchLength)].copy(deep=True)
         res['score']=res.index.get_level_values('word').map(lambda x: distance(x,search_term))
         res['has_start']=res.index.get_level_values('word').map(lambda x: self.check_start(searchLength,search_term,x))
         return res.sort_values(['has_start','score','len','freq'],ascending=[False,True,True,False])
+
     
     def addChild(self, key, data=None):
         #Todo: extension to add to the ngram tree         
