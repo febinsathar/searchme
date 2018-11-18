@@ -1,6 +1,7 @@
 FROM python:3.6-alpine
 
 
+RUN apk add --no-cache --virtual .pynacl_deps build-base python3-dev libffi-dev
 
 WORKDIR /home/app
 
