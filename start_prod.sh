@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 
-# Figure out how many processes to serve based on the number
-# of logical cores, assuming not many. Most recommendations 
-# say logical cores + 1
-num_cpu=2
-if [[ $(uname) = 'Darwin' ]]; then
-    num_cpu=$(sysctl -n hw.logicalcpu_max)
+
+echo "Starting $NAME as `whoami`"
+Port=5000
+TIMEOUT=1200
+pid=`ps ax | grep gunicorn | grep $Port | awk '{split($0,a," "); print a[1]}' | head -n 1`
+if [ -z "$pid" ]; then
+  echo "no gunicorn deamon on port $Port"
 else
-    num_cpu=$(lscpu -p | egrep -v '^#' | wc -l)
+  kill $pid
+  echo "killed gunicorn deamon on port $Port"
 fi
-workers=$(($num_cpu + 1))
 
-echo "Starting server for ${PY_ENV:=prod} with $num_cpu workers."
-pip install -r requirements.txt
+gunicorn -w 1 --access-logfile logs/access_log.log \
+--error-logfile logs/error_log.log \
+--timeout $TIMEOUT \
+-b 0.0.0.0:$Port app:app
 
-gunicorn --bind localhost:5000 --workers $workers --worker-class egg:meinheld#gunicorn_worker app:app --reload
+tail -n 0 -f logs/*.log &

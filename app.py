@@ -1,5 +1,6 @@
 from flask import Flask,request,jsonify,send_from_directory
-
+import traceback
+import sys
 from flask_cors import CORS, cross_origin
 from dynaconf import FlaskDynaconf
 
@@ -51,17 +52,18 @@ def search():
 
     if(search_term==""):
         return jsonify({"result":[],"total":0,"time":"0s"})
+    if(len(search_term)>ngram.get_max_len()):
+        return jsonify({"error":"no search term more than "+str(ngram.get_max_len())+" length exists"}) , 400
     
-    try:
-        start = timeit.default_timer()
-        result=ngram.search_me(search_term)
-        stop = timeit.default_timer()
-        total_records=result.shape[0]
-        page_start= 0 if(page_start)<0 else page_start
-        page_end=total_records if (page_end>total_records) else page_end
-        resp = result.iloc[page_start:page_end].reset_index()[['word','freq','score']].to_dict(orient='records')
-        return jsonify({"result":resp,"totalRecords":result.shape[0],"time":str(round(stop - start, 5))+"s","pageStart":page_start,"pageEnd":page_end}), 200
-    except Exception as e:
-        return jsonify({"error":str(e)}) , 400
+    exc_info = sys.exc_info()
+    start = timeit.default_timer()
+    result=ngram.search_me(search_term)
+    stop = timeit.default_timer()
+    total_records=result.shape[0]
+    page_start= 0 if(page_start)<0 else page_start
+    page_end=total_records if (page_end>total_records) else page_end
+    resp = result.iloc[page_start:page_end].reset_index()[['word','freq','score']].to_dict(orient='records')
+    return jsonify({"result":resp,"totalRecords":result.shape[0],"time":str(round(stop - start, 5))+"s","pageStart":page_start,"pageEnd":page_end}), 200
+
 
 

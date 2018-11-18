@@ -1,7 +1,6 @@
 FROM python:3.6-alpine
 
 
-RUN adduser -D airbase
 
 WORKDIR /home/app
 

@@ -52,6 +52,9 @@ class NgramPandas(metaclass = Singleton):
             return True
         else:
             return False
+
+    def get_max_len(self):
+        return self.max_letter_len
     
     @staticmethod   
     def ngrams(sequence, n, pad_left=False, pad_right=False, pad_symbol=None):
@@ -77,14 +80,17 @@ class NgramPandas(metaclass = Singleton):
         if(searchLength<15):
             predgramList=self.ngrams(search_term,3,True,False,"-")
             for pred in predgramList.keys():
-                resultListfromNgram=resultListfromNgram+self.trigramMap[pred]
+                if(pred in self.trigramMap):
+                    resultListfromNgram=resultListfromNgram+self.trigramMap[pred]
         else:
             predgramList=self.ngrams(search_term,4,False,False,"-")
             for pred in predgramList.keys():
-                resultListfromNgram=resultListfromNgram+self.fourgramMap[pred]
+                if(pred in self.fourgramMap):
+                    resultListfromNgram=resultListfromNgram+self.fourgramMap[pred]
         res=self.searchDF[(self.searchDF.index.get_level_values('lookupindex').isin(set(resultListfromNgram))) &(self.searchDF.index.get_level_values('len')>=searchLength)].copy(deep=True)
         res['score']=res.index.get_level_values('word').map(lambda x: distance(x,search_term))
         res['has_start']=res.index.get_level_values('word').map(lambda x: self.check_start(searchLength,search_term,x))
+        res.reset_index(inplace=True)
         return res.sort_values(['has_start','score','len','freq'],ascending=[False,True,True,False])
 
     
